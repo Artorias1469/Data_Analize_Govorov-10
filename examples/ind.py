@@ -1,66 +1,65 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import math
-from threading import Lock, Thread
+from threading import Thread
 from queue import Queue
 
-E = 10e-7
-lock = Lock()
+E = 1e-7  # Точность
 
-def series1(x, eps, result_queue):
+def series1(x, eps, queue):
     s = 0
     n = 0
-    x_pow = 1  # x^0
-    factorial = 1  # 0!
     while True:
-        term = ((-1)**n * x_pow) / factorial
+        term = (-1)**n * x**(2*n) / math.factorial(2*n)
         if abs(term) < eps:
             break
-        else:
-            s += term
-            n += 1
-            x_pow *= x * x  # x^(2*n)
-            factorial *= (2*n) * (2*n - 1)  # (2*n)!
-    result_queue.put(s)
+        s += term
+        n += 1
+    queue.put(s)
 
-def series2(eps, result_queue, final_results):
-    s1 = result_queue.get()
+def series2(x, eps, queue):
     s = 0
-    n = 0
-    x_pow = 1  # x^0
-    factorial = 1  # 0!
+    n = 1
     while True:
-        term = ((-1)**n * s1) / factorial
+        term = (-1)**(n-1) * x / n
         if abs(term) < eps:
             break
-        else:
-            s += term
-            n += 1
-            s1 *= s1  # (s1)^(2*n)
-            factorial *= (2*n) * (2*n - 1)  # (2*n)!
-    with lock:
-        final_results["series2"] = s
+        s += term
+        n += 1
+    queue.put(s)
 
 def main():
-    result_queue = Queue()
-    final_results = {}
+    x1 = 0.3
+    control1 = math.cos(x1)
 
-    x = 0.3
-    control_value = math.cos(x)
+    x2 = 0.4
+    control2 = math.log(x2 + 1)
 
-    thread1 = Thread(target=series1, args=(x, E, result_queue))
-    thread2 = Thread(target=series2, args=(E, result_queue, final_results))
+    queue1 = Queue()
+    queue2 = Queue()
+
+    thread1 = Thread(target=series1, args=(x1, E, queue1))
+    thread2 = Thread(target=series2, args=(x2, E, queue2))
 
     thread1.start()
     thread2.start()
 
+    sum1 = queue1.get()
+    sum2 = queue2.get()
+
     thread1.join()
     thread2.join()
 
-    sum2 = final_results["series2"]
+    print(f"x1 = {x1}")
+    print(f"Sum of series 1: {sum1:.7f}")
+    print(f"Control value 1: {control1:.7f}")
+    print(f"Match 1: {round(sum1, 7) == round(control1, 7)}")
 
-    print(f"x = {x}")
-    print(f"Sum of series 2: {round(sum2, 7)}")
-    print(f"Control value: {round(control_value, 7)}")
-    print(f"Match 2: {round(sum2, 7) == round(control_value, 7)}")
+    print(f"x2 = {x2}")
+    print(f"Sum of series 2: {sum2:.7f}")
+    print(f"Control value 2: {control2:.7f}")
+    print(f"Match 2: {round(sum2, 7) == round(control2, 7)}")
 
 if __name__ == "__main__":
     main()
